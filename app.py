@@ -36,7 +36,7 @@ st.markdown("""
 
 @st.cache_data(ttl=3600)
 def load_predictions():
-    from data_pipeline import load_predictions as _lp, generate_demo_predictions
+    from data_pipeline import load_predictions as _lp
     from ml_model import generate_demo_predictions as demo_preds
     try:
         df = _lp()

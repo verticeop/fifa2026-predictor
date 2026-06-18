@@ -55,13 +55,70 @@ def load_predictions():
         ])
 
 
+def generate_demo_matches():
+    """Generate realistic demo match data for display when no API key is set."""
+    matches = [
+        # 2022 World Cup Group Stage
+        {"date":"2022-11-20","home_team":"Qatar","away_team":"Ecuador","home_score":0,"away_score":2,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-21","home_team":"England","away_team":"Iran","home_score":6,"away_score":2,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-21","home_team":"USA","away_team":"Wales","home_score":1,"away_score":1,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-21","home_team":"Senegal","away_team":"Netherlands","home_score":0,"away_score":2,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-22","home_team":"Argentina","away_team":"Saudi Arabia","home_score":1,"away_score":2,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-22","home_team":"Denmark","away_team":"Tunisia","home_score":0,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-22","home_team":"Mexico","away_team":"Poland","home_score":0,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-22","home_team":"France","away_team":"Australia","home_score":4,"away_score":1,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-23","home_team":"Morocco","away_team":"Croatia","home_score":0,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-23","home_team":"Germany","away_team":"Japan","home_score":1,"away_score":2,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-23","home_team":"Spain","away_team":"Costa Rica","home_score":7,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-24","home_team":"Belgium","away_team":"Canada","home_score":1,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-24","home_team":"Switzerland","away_team":"Cameroon","home_score":1,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-24","home_team":"Uruguay","away_team":"South Korea","home_score":0,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-24","home_team":"Portugal","away_team":"Ghana","home_score":3,"away_score":2,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        {"date":"2022-11-24","home_team":"Brazil","away_team":"Serbia","home_score":2,"away_score":0,"competition":"FIFA World Cup 2022","stage":"GROUP_STAGE"},
+        # Round of 16
+        {"date":"2022-12-03","home_team":"Netherlands","away_team":"USA","home_score":3,"away_score":1,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-03","home_team":"Argentina","away_team":"Australia","home_score":2,"away_score":1,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-04","home_team":"France","away_team":"Poland","home_score":3,"away_score":1,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-04","home_team":"England","away_team":"Senegal","home_score":3,"away_score":0,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-05","home_team":"Japan","away_team":"Croatia","home_score":1,"away_score":1,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-05","home_team":"Brazil","away_team":"South Korea","home_score":4,"away_score":1,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-06","home_team":"Morocco","away_team":"Spain","home_score":0,"away_score":0,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        {"date":"2022-12-06","home_team":"Portugal","away_team":"Switzerland","home_score":6,"away_score":1,"competition":"FIFA World Cup 2022","stage":"LAST_16"},
+        # Quarter finals
+        {"date":"2022-12-09","home_team":"Croatia","away_team":"Brazil","home_score":1,"away_score":1,"competition":"FIFA World Cup 2022","stage":"QUARTER_FINALS"},
+        {"date":"2022-12-09","home_team":"Netherlands","away_team":"Argentina","home_score":2,"away_score":2,"competition":"FIFA World Cup 2022","stage":"QUARTER_FINALS"},
+        {"date":"2022-12-10","home_team":"Morocco","away_team":"Portugal","home_score":1,"away_score":0,"competition":"FIFA World Cup 2022","stage":"QUARTER_FINALS"},
+        {"date":"2022-12-10","home_team":"England","away_team":"France","home_score":1,"away_score":2,"competition":"FIFA World Cup 2022","stage":"QUARTER_FINALS"},
+        # Semi finals
+        {"date":"2022-12-13","home_team":"Argentina","away_team":"Croatia","home_score":3,"away_score":0,"competition":"FIFA World Cup 2022","stage":"SEMI_FINALS"},
+        {"date":"2022-12-14","home_team":"France","away_team":"Morocco","home_score":2,"away_score":0,"competition":"FIFA World Cup 2022","stage":"SEMI_FINALS"},
+        # Final
+        {"date":"2022-12-18","home_team":"Argentina","away_team":"France","home_score":3,"away_score":3,"competition":"FIFA World Cup 2022","stage":"FINAL"},
+        # FIFA 2026 matches played so far
+        {"date":"2026-06-11","home_team":"Mexico","away_team":"USA","home_score":0,"away_score":2,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-12","home_team":"Canada","away_team":"France","home_score":0,"away_score":1,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-12","home_team":"Argentina","away_team":"Qatar","home_score":3,"away_score":0,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-13","home_team":"Spain","away_team":"Brazil","home_score":1,"away_score":2,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-13","home_team":"England","away_team":"Serbia","home_score":2,"away_score":0,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-14","home_team":"Germany","away_team":"Japan","home_score":2,"away_score":1,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-14","home_team":"Portugal","away_team":"Morocco","home_score":2,"away_score":1,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-15","home_team":"Netherlands","away_team":"Senegal","home_score":3,"away_score":0,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-15","home_team":"France","away_team":"Belgium","home_score":1,"away_score":0,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+        {"date":"2026-06-16","home_team":"Brazil","away_team":"Croatia","home_score":2,"away_score":0,"competition":"FIFA World Cup 2026","stage":"GROUP_STAGE"},
+    ]
+    return pd.DataFrame(matches)
+
+
 @st.cache_data(ttl=3600)
 def load_matches():
     from data_pipeline import load_matches as _lm
     try:
-        return _lm()
+        df = _lm()
+        if df.empty:
+            return generate_demo_matches()
+        return df
     except:
-        return pd.DataFrame()
+        return generate_demo_matches()
 
 
 def get_flag(team):

@@ -6,3 +6,7 @@ plotly
 requests
 schedule
 joblib
+fastapi
+uvicorn
+pydantic
+matplotlib

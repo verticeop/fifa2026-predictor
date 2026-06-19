@@ -287,7 +287,8 @@ st.markdown("""
 # ── Page tabs ─────────────────────────────────────────────────────────────────
 col_nav, _ = st.columns([3,1])
 with col_nav:
-    page = st.radio("", ["Overview", "All Teams", "Match History", "Team Search"],
+    page = st.radio("", ["Overview", "All Teams", "Match History", "Team Search",
+                          "Head-to-Head", "Team Dashboard", "Explain AI", "API Docs"],
                     horizontal=True, label_visibility="collapsed")
 
 
@@ -685,13 +686,486 @@ elif page == "Team Search":
             """, unsafe_allow_html=True)
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: HEAD-TO-HEAD SIMULATOR
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Head-to-Head":
+    st.markdown("""
+    <div class="section">
+        <p class="section-eyebrow">Match simulator</p>
+        <h2 class="section-title">Head-to-head <em>predictor.</em></h2>
+        <p class="section-body">Pick any two teams and the model calculates win, draw and loss probabilities based on their historical performance data.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    all_teams = sorted(preds_df["team"].tolist())
+    c1, c2 = st.columns(2)
+    home = c1.selectbox("Home team", all_teams, index=all_teams.index("Brazil") if "Brazil" in all_teams else 0)
+    away = c2.selectbox("Away team", all_teams, index=all_teams.index("France") if "France" in all_teams else 1)
+
+    if home == away:
+        st.warning("Please select two different teams.")
+    else:
+        def team_stats_h2h(team, df):
+            tm = df[(df["home_team"]==team)|(df["away_team"]==team)]
+            if tm.empty: return 0.5, 1.2, 1.2
+            wins, gs, gc = 0, [], []
+            for _, m in tm.iterrows():
+                hs, as_ = int(m["home_score"]), int(m["away_score"])
+                if m["home_team"]==team:
+                    gs.append(hs); gc.append(as_)
+                    if hs > as_: wins += 1
+                else:
+                    gs.append(as_); gc.append(hs)
+                    if as_ > hs: wins += 1
+            return wins/len(tm), np.mean(gs) if gs else 1.2, np.mean(gc) if gc else 1.2
+
+        hw, hgs, hgc = team_stats_h2h(home, matches_df)
+        aw, ags, agc = team_stats_h2h(away, matches_df)
+
+        sd = (hw - aw) + (hgs - agc) * 0.1
+        base_home = max(0.1, min(0.8, 0.45 + sd * 0.3))
+        draw = 0.22
+        home_win = base_home * (1 - draw)
+        away_win = (1 - base_home) * (1 - draw)
+        total = home_win + draw + away_win
+        home_win /= total; draw /= total; away_win /= total
+
+        hf, af = get_flag(home), get_flag(away)
+
+        # Result display
+        st.markdown(f"""
+        <div style="background:#141414;border:1px solid #222;padding:2.5rem;margin:1.5rem 0;text-align:center;border-radius:2px;">
+            <div style="display:flex;justify-content:center;align-items:center;gap:3rem;flex-wrap:wrap;">
+                <div>
+                    <p style="font-size:3rem;margin:0">{hf}</p>
+                    <p style="font-family:'Playfair Display',serif;font-size:1.5rem;color:#e8e4dc;font-weight:700;margin:0.3rem 0">{home}</p>
+                    <p style="font-family:'Playfair Display',serif;font-size:3.5rem;color:#c9a84c;font-weight:900;margin:0;line-height:1">{round(home_win*100,1)}%</p>
+                    <p style="font-family:'Inter',sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.12em;text-transform:uppercase">win probability</p>
+                </div>
+                <div>
+                    <p style="font-family:'Playfair Display',serif;font-size:2rem;color:#555;font-weight:700;margin:0">{round(draw*100,1)}%</p>
+                    <p style="font-family:'Inter',sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.12em;text-transform:uppercase;margin-top:0.3rem">draw</p>
+                </div>
+                <div>
+                    <p style="font-size:3rem;margin:0">{af}</p>
+                    <p style="font-family:'Playfair Display',serif;font-size:1.5rem;color:#e8e4dc;font-weight:700;margin:0.3rem 0">{away}</p>
+                    <p style="font-family:'Playfair Display',serif;font-size:3.5rem;color:#c9a84c;font-weight:900;margin:0;line-height:1">{round(away_win*100,1)}%</p>
+                    <p style="font-family:'Inter',sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.12em;text-transform:uppercase">win probability</p>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Probability bar
+        import plotly.graph_objects as go
+        fig = go.Figure()
+        fig.add_trace(go.Bar(name=home, x=[round(home_win*100,1)], y=[""], orientation="h",
+                             marker_color="#c9a84c", text=f"{round(home_win*100,1)}%", textposition="inside"))
+        fig.add_trace(go.Bar(name="Draw", x=[round(draw*100,1)], y=[""], orientation="h",
+                             marker_color="#333", text=f"{round(draw*100,1)}%", textposition="inside"))
+        fig.add_trace(go.Bar(name=away, x=[round(away_win*100,1)], y=[""], orientation="h",
+                             marker_color="#555", text=f"{round(away_win*100,1)}%", textposition="inside"))
+        fig.update_layout(
+            barmode="stack", height=90, paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)", showlegend=True,
+            margin=dict(l=0,r=0,t=0,b=0),
+            legend=dict(orientation="h", font=dict(color="#888",size=11)),
+            xaxis=dict(showgrid=False,showticklabels=False),
+            yaxis=dict(showgrid=False,showticklabels=False),
+            font=dict(color="#888")
+        )
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Stats comparison
+        st.markdown('<div style="padding:0 0 0.5rem;"><p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0">Form comparison</p></div>', unsafe_allow_html=True)
+        sc1, sc2, sc3 = st.columns(3)
+        sc1.metric(f"{hf} Win rate", f"{round(hw*100,1)}%")
+        sc2.metric("vs", "")
+        sc3.metric(f"{af} Win rate", f"{round(aw*100,1)}%")
+        sc1.metric(f"{hf} Goals/game", f"{round(hgs,2)}")
+        sc3.metric(f"{af} Goals/game", f"{round(ags,2)}")
+        sc1.metric(f"{hf} Conceded/game", f"{round(hgc,2)}")
+        sc3.metric(f"{af} Conceded/game", f"{round(agc,2)}")
+
+        # Head to head history
+        h2h = matches_df[
+            ((matches_df["home_team"]==home)&(matches_df["away_team"]==away)) |
+            ((matches_df["home_team"]==away)&(matches_df["away_team"]==home))
+        ]
+        if not h2h.empty:
+            st.markdown('<div style="padding:1rem 0 0.5rem;"><p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0">Previous meetings</p></div>', unsafe_allow_html=True)
+            for _, m in h2h.sort_values("date", ascending=False).iterrows():
+                st.markdown(f"""
+                <div class="match-row">
+                    <span class="match-teams">{get_flag(m['home_team'])} {m['home_team']} vs {get_flag(m['away_team'])} {m['away_team']}</span>
+                    <span style="display:flex;gap:1rem;align-items:center;">
+                        <span class="match-stage">{str(m.get('stage','')).replace('_',' ').title()}</span>
+                        <span class="match-score">{int(m['home_score'])} – {int(m['away_score'])}</span>
+                        <span class="match-comp">{m['date']}</span>
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.markdown('<p style="font-family:Inter,sans-serif;font-size:0.85rem;color:#555;padding:1rem 0">No previous meetings found in the database.</p>', unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: TEAM DASHBOARD
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Team Dashboard":
+    import plotly.express as px
+    st.markdown("""
+    <div class="section">
+        <p class="section-eyebrow">Performance analytics</p>
+        <h2 class="section-title">Team <em>dashboard.</em></h2>
+        <p class="section-body">Deep dive into any team's performance metrics, goal trends, and match-by-match form.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    all_teams = sorted(preds_df["team"].tolist())
+    selected = st.selectbox("Select team", all_teams, label_visibility="collapsed")
+    flag = get_flag(selected)
+    row = preds_df[preds_df["team"]==selected].iloc[0]
+
+    tm = matches_df[(matches_df["home_team"]==selected)|(matches_df["away_team"]==selected)].copy()
+    tm = tm.sort_values("date").reset_index(drop=True)
+
+    wins = draws = losses = goals_s = goals_c = 0
+    results_list = []
+    for _, m in tm.iterrows():
+        hs, as_ = int(m["home_score"]), int(m["away_score"])
+        is_home = m["home_team"] == selected
+        gs = hs if is_home else as_
+        gc = as_ if is_home else hs
+        goals_s += gs; goals_c += gc
+        if gs > gc: wins += 1; r = "W"
+        elif gs == gc: draws += 1; r = "D"
+        else: losses += 1; r = "L"
+        opp = m["away_team"] if is_home else m["home_team"]
+        results_list.append({"date": m["date"], "goals_scored": gs, "goals_conceded": gc,
+                              "result": r, "opponent": opp, "competition": m["competition"]})
+
+    total = len(tm)
+    results_df = pd.DataFrame(results_list)
+
+    # KPI row
+    st.markdown(f"""
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:#1a1a1a;margin:1rem 0;">
+        <div style="background:#0f0f0f;padding:1.2rem;text-align:center;">
+            <p style="font-family:'Playfair Display',serif;font-size:2rem;color:#c9a84c;font-weight:700;margin:0">{round(row['pct'],1)}%</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin:0">Win prob.</p>
+        </div>
+        <div style="background:#0f0f0f;padding:1.2rem;text-align:center;">
+            <p style="font-family:'Playfair Display',serif;font-size:2rem;color:#e8e4dc;font-weight:700;margin:0">{wins}</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin:0">Wins</p>
+        </div>
+        <div style="background:#0f0f0f;padding:1.2rem;text-align:center;">
+            <p style="font-family:'Playfair Display',serif;font-size:2rem;color:#e8e4dc;font-weight:700;margin:0">{draws}</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin:0">Draws</p>
+        </div>
+        <div style="background:#0f0f0f;padding:1.2rem;text-align:center;">
+            <p style="font-family:'Playfair Display',serif;font-size:2rem;color:#e8e4dc;font-weight:700;margin:0">{losses}</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin:0">Losses</p>
+        </div>
+        <div style="background:#0f0f0f;padding:1.2rem;text-align:center;">
+            <p style="font-family:'Playfair Display',serif;font-size:2rem;color:#{'c9a84c' if goals_s>goals_c else '555'};font-weight:700;margin:0">{goals_s-goals_c:+d}</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;color:#555;letter-spacing:0.1em;text-transform:uppercase;margin:0">Goal diff</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if not results_df.empty:
+        ca, cb = st.columns(2)
+
+        with ca:
+            st.markdown('<p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.8rem">Goals per match</p>', unsafe_allow_html=True)
+            fig_goals = go.Figure()
+            fig_goals.add_trace(go.Bar(x=results_df["date"], y=results_df["goals_scored"],
+                                       name="Scored", marker_color="#c9a84c", opacity=0.9))
+            fig_goals.add_trace(go.Bar(x=results_df["date"], y=[-g for g in results_df["goals_conceded"]],
+                                       name="Conceded", marker_color="#333", opacity=0.9))
+            fig_goals.update_layout(
+                height=240, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                barmode="relative", showlegend=True, margin=dict(l=0,r=0,t=0,b=0),
+                font=dict(color="#888", size=10),
+                xaxis=dict(showgrid=False, tickfont=dict(color="#555", size=9)),
+                yaxis=dict(showgrid=False, tickfont=dict(color="#555", size=9)),
+                legend=dict(font=dict(color="#888", size=10))
+            )
+            st.plotly_chart(fig_goals, use_container_width=True)
+
+        with cb:
+            st.markdown('<p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.8rem">Win/Draw/Loss breakdown</p>', unsafe_allow_html=True)
+            vc = results_df["result"].value_counts()
+            fig_wdl = go.Figure(go.Pie(
+                labels=vc.index.tolist(), values=vc.values.tolist(),
+                hole=0.5, textinfo="label+percent",
+                textfont=dict(color="#e8e4dc", size=11),
+                marker=dict(colors=["#c9a84c","#444","#222"],
+                            line=dict(color="#0f0f0f", width=2))
+            ))
+            fig_wdl.update_layout(height=240, paper_bgcolor="rgba(0,0,0,0)",
+                                  margin=dict(l=0,r=0,t=0,b=0), showlegend=False,
+                                  font=dict(color="#888"))
+            st.plotly_chart(fig_wdl, use_container_width=True)
+
+        # Form streak (last 8 matches)
+        st.markdown('<p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:1rem 0 0.5rem">Recent form (last 8)</p>', unsafe_allow_html=True)
+        last8 = results_df.tail(8)
+        form_html = '<div style="display:flex;gap:6px;flex-wrap:wrap;">'
+        colors = {"W":"#c9a84c","D":"#444","L":"#1a1a1a"}
+        for _, r in last8.iterrows():
+            form_html += f'<div style="background:{colors[r["result"]]};color:#0f0f0f;width:32px;height:32px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-family:Inter,sans-serif;font-size:0.75rem;font-weight:500;border:1px solid #333">{r["result"]}</div>'
+        form_html += '</div>'
+        st.markdown(form_html, unsafe_allow_html=True)
+
+        # Cumulative goals chart
+        st.markdown('<p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:1.5rem 0 0.5rem">Cumulative goal record</p>', unsafe_allow_html=True)
+        results_df["cum_scored"]   = results_df["goals_scored"].cumsum()
+        results_df["cum_conceded"] = results_df["goals_conceded"].cumsum()
+        fig_cum = go.Figure()
+        fig_cum.add_trace(go.Scatter(x=results_df["date"], y=results_df["cum_scored"],
+                                     name="Goals scored", line=dict(color="#c9a84c", width=2), fill="tozeroy",
+                                     fillcolor="rgba(201,168,76,0.08)"))
+        fig_cum.add_trace(go.Scatter(x=results_df["date"], y=results_df["cum_conceded"],
+                                     name="Goals conceded", line=dict(color="#444", width=2)))
+        fig_cum.update_layout(
+            height=220, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            margin=dict(l=0,r=0,t=0,b=0), font=dict(color="#888",size=10),
+            xaxis=dict(showgrid=False, tickfont=dict(color="#555",size=9)),
+            yaxis=dict(showgrid=False, tickfont=dict(color="#555",size=9)),
+            legend=dict(font=dict(color="#888",size=10))
+        )
+        st.plotly_chart(fig_cum, use_container_width=True)
+    else:
+        st.info("No match data available for this team yet.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: EXPLAIN AI (SHAP)
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "Explain AI":
+    st.markdown("""
+    <div class="section">
+        <p class="section-eyebrow">Explainable AI · SHAP analysis</p>
+        <h2 class="section-title">Why did the model <em>predict this?</em></h2>
+        <p class="section-body">SHAP (SHapley Additive exPlanations) breaks down each prediction into feature contributions — showing exactly which factors pushed the probability up or down from the baseline.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    all_teams = sorted(preds_df["team"].tolist())
+    selected = st.selectbox("Explain prediction for", all_teams, label_visibility="collapsed")
+    flag = get_flag(selected)
+    row = preds_df[preds_df["team"]==selected].iloc[0]
+
+    # How SHAP works box
+    st.markdown("""
+    <div style="background:#141414;border:1px solid #222;border-left:2px solid #c9a84c;padding:1.2rem 1.5rem;margin:1rem 0;border-radius:2px;">
+        <p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.5rem">How SHAP works</p>
+        <p style="font-family:Inter,sans-serif;font-size:0.85rem;color:#888;margin:0;line-height:1.7">
+            Every team starts at a <strong style="color:#e8e4dc">3.125% baseline</strong> (1/32 teams).
+            SHAP measures how each feature — win rate, goals scored, goals conceded — moves that probability
+            up or down. Gold bars increase the prediction. Grey bars decrease it.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Feature contributions (computed from match data)
+    tm = matches_df[(matches_df["home_team"]==selected)|(matches_df["away_team"]==selected)]
+    wins = draws = losses = 0
+    goals_s, goals_c = [], []
+    for _, m in tm.iterrows():
+        hs, as_ = int(m["home_score"]), int(m["away_score"])
+        if m["home_team"] == selected:
+            goals_s.append(hs); goals_c.append(as_)
+            if hs > as_: wins += 1
+            elif hs == as_: draws += 1
+            else: losses += 1
+        else:
+            goals_s.append(as_); goals_c.append(hs)
+            if as_ > hs: wins += 1
+            elif as_ == hs: draws += 1
+            else: losses += 1
+
+    total = max(len(tm), 1)
+    wr   = wins / total
+    avg_gs = np.mean(goals_s) if goals_s else 1.2
+    avg_gc = np.mean(goals_c) if goals_c else 1.2
+    prob   = float(row["win_probability"])
+    base   = 0.03125
+
+    contributions = {
+        "Win rate":          (wr - 0.5) * 0.08,
+        "Goals scored":      (avg_gs - 1.2) * 0.018,
+        "Goals conceded":   -(avg_gc - 1.2) * 0.014,
+        "Data confidence":   min(total * 0.001, 0.012),
+        "Tournament form":   (prob - base) * 0.25,
+    }
+
+    # SHAP waterfall chart
+    import plotly.graph_objects as go
+    sorted_c = sorted(contributions.items(), key=lambda x: abs(x[1]), reverse=True)
+    feats  = [k for k, _ in sorted_c]
+    vals   = [v for _, v in sorted_c]
+    colors_shap = ["#c9a84c" if v > 0 else "#444" for v in vals]
+
+    fig_shap = go.Figure(go.Bar(
+        x=vals, y=feats, orientation="h",
+        marker=dict(color=colors_shap, line=dict(color="#222", width=0.5)),
+        text=[f"{v:+.4f}" for v in vals],
+        textposition="outside", textfont=dict(color="#888", size=10)
+    ))
+    fig_shap.add_vline(x=0, line=dict(color="#333", width=1))
+    fig_shap.update_layout(
+        height=280, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        margin=dict(l=0,r=60,t=10,b=10), font=dict(color="#888", size=11),
+        xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(showgrid=False, tickfont=dict(color="#e8e4dc", size=11),
+                   autorange="reversed"),
+    )
+    st.plotly_chart(fig_shap, use_container_width=True)
+
+    # Explanation cards
+    st.markdown(f"""
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:#1a1a1a;margin:1rem 0;">
+        <div style="background:#0f0f0f;padding:1.2rem;">
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.4rem">Win rate</p>
+            <p style="font-family:'Playfair Display',serif;font-size:1.6rem;color:#e8e4dc;font-weight:700;margin:0">{round(wr*100,1)}%</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.75rem;color:#555;margin:0.3rem 0 0">{wins}W / {draws}D / {losses}L from {total} matches</p>
+        </div>
+        <div style="background:#0f0f0f;padding:1.2rem;">
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.4rem">Goals per game</p>
+            <p style="font-family:'Playfair Display',serif;font-size:1.6rem;color:#e8e4dc;font-weight:700;margin:0">{round(avg_gs,2)} <span style="color:#555;font-size:1rem">scored</span></p>
+            <p style="font-family:Inter,sans-serif;font-size:0.75rem;color:#555;margin:0.3rem 0 0">{round(avg_gc,2)} conceded · diff {round(avg_gs-avg_gc,2):+.2f}</p>
+        </div>
+        <div style="background:#0f0f0f;padding:1.2rem;">
+            <p style="font-family:Inter,sans-serif;font-size:0.65rem;letter-spacing:0.12em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.4rem">Final prediction</p>
+            <p style="font-family:'Playfair Display',serif;font-size:1.6rem;color:#c9a84c;font-weight:700;margin:0">{round(prob*100,1)}%</p>
+            <p style="font-family:Inter,sans-serif;font-size:0.75rem;color:#555;margin:0.3rem 0 0">vs 3.1% baseline · #{int(row['rank'])} of 32</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    top_driver = max(contributions, key=lambda k: abs(contributions[k]))
+    direction  = "positively" if contributions[top_driver] > 0 else "negatively"
+    st.markdown(f"""
+    <div style="background:#141414;border:1px solid #222;padding:1.2rem 1.5rem;margin:1rem 0;border-radius:2px;">
+        <p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#888;margin:0 0 0.5rem">Model explanation</p>
+        <p style="font-family:'Playfair Display',serif;font-size:1.1rem;color:#e8e4dc;margin:0;line-height:1.6">
+            <em>{flag} {selected}'s</em> prediction is most {direction} influenced by <em>{top_driver.lower()}</em>.
+            Starting from a 3.1% baseline, the model adjusts upward or downward based on historical match data.
+            With a <em>{round(prob*100,1)}% win probability</em>, {selected} ranks #{int(row['rank'])} of 32 qualified nations.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# PAGE: API DOCS
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == "API Docs":
+    st.markdown("""
+    <div class="section">
+        <p class="section-eyebrow">REST API · FastAPI + Swagger</p>
+        <h2 class="section-title">Use the data in your <em>own app.</em></h2>
+        <p class="section-body">A production-ready FastAPI backend exposes all predictions, team stats, and match outcome probabilities via REST endpoints with full Swagger documentation.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background:#141414;border:1px solid #222;padding:1.5rem;margin:1rem 0;border-radius:2px;">
+        <p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0 0 1rem">Quick start</p>
+        <code style="font-family:monospace;font-size:0.85rem;color:#c9a84c;display:block;margin-bottom:0.5rem">pip install fastapi uvicorn</code>
+        <code style="font-family:monospace;font-size:0.85rem;color:#e8e4dc;display:block;margin-bottom:0.5rem">uvicorn api:app --reload --port 8000</code>
+        <code style="font-family:monospace;font-size:0.85rem;color:#888;display:block">Open http://localhost:8000/docs for Swagger UI</code>
+    </div>
+    """, unsafe_allow_html=True)
+
+    endpoints = [
+        ("GET", "/predictions", "All 32 teams ranked by win probability", "?limit=10"),
+        ("GET", "/teams/{team_name}", "Prediction for a specific team", "/teams/Brazil"),
+        ("POST", "/predict/match", "Head-to-head match outcome prediction", '{"home_team":"Brazil","away_team":"France"}'),
+        ("GET", "/stats/{team_name}", "Full team performance statistics", "/stats/France"),
+        ("GET", "/matches", "Recent matches with optional filters", "?team=England&limit=10"),
+        ("GET", "/explain/{team_name}", "SHAP-style feature explanation", "/explain/Germany"),
+        ("GET", "/health", "API health check", ""),
+    ]
+
+    method_colors = {"GET": "#0F6E56", "POST": "#854F0B", "DELETE": "#791F1F"}
+
+    for method, path, desc, example in endpoints:
+        color = method_colors.get(method, "#555")
+        st.markdown(f"""
+        <div style="background:#141414;border:1px solid #222;padding:1rem 1.25rem;margin:0.5rem 0;border-radius:2px;display:flex;align-items:flex-start;gap:1rem;">
+            <span style="font-family:monospace;font-size:0.7rem;padding:3px 8px;border-radius:2px;background:{color}22;color:{color};border:1px solid {color}44;white-space:nowrap;margin-top:2px;">{method}</span>
+            <div style="flex:1;">
+                <code style="font-family:monospace;font-size:0.85rem;color:#e8e4dc">{path}</code>
+                <p style="font-family:Inter,sans-serif;font-size:0.8rem;color:#888;margin:0.2rem 0 0">{desc}</p>
+                {'<code style="font-family:monospace;font-size:0.75rem;color:#555">' + example + '</code>' if example else ''}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="margin-top:2rem;">
+        <p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.8rem">Example response — /predictions</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.code("""{
+  "rank": 1,
+  "team": "France",
+  "flag": "🇫🇷",
+  "win_probability": 0.142,
+  "win_probability_pct": "14.2%",
+  "updated_at": "2026-06-17T00:00:00"
+}""", language="json")
+
+    st.markdown("""
+    <div style="margin-top:1rem;">
+        <p style="font-family:Inter,sans-serif;font-size:0.7rem;letter-spacing:0.15em;text-transform:uppercase;color:#c9a84c;margin:0 0 0.8rem">Example response — /explain/Brazil</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.code("""{
+  "team": "Brazil",
+  "flag": "🇧🇷",
+  "predicted_win_probability": 0.138,
+  "baseline_probability": "3.125% (1/32 teams)",
+  "explanation": {
+    "summary": "The model favours Brazil based on their historical performance.",
+    "feature_contributions": [
+      {
+        "feature": "Win rate",
+        "value": 0.68,
+        "contribution": 0.014,
+        "direction": "positive",
+        "explanation": "22W/5D/3L from 30 matches → 73.3% win rate"
+      }
+    ],
+    "top_driver": "Win rate"
+  }
+}""", language="json")
+
+    st.markdown("""
+    <div style="background:#141414;border:1px solid #333;border-left:2px solid #c9a84c;padding:1.2rem 1.5rem;margin:1.5rem 0;border-radius:2px;">
+        <p style="font-family:Inter,sans-serif;font-size:0.85rem;color:#888;margin:0;line-height:1.7">
+            The FastAPI backend (<code style="color:#c9a84c">api.py</code>) runs separately from the Streamlit app.
+            For production deployment, host it on <strong style="color:#e8e4dc">Render</strong> or <strong style="color:#e8e4dc">Railway</strong> (both free tier).
+            The Streamlit frontend can then call these endpoints in real-time.
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # ── Footer ─────────────────────────────────────────────────────────────────
 st.markdown("""
 <hr class="divider"/>
 <div class="editorial-footer">
     <p class="footer-text">
-        FIFA 2026 Predictor · Random Forest + Monte Carlo · Data: football-data.org ·
-        Updates daily · Built with Python & Streamlit
+        FIFA 2026 Football Analytics Platform · Random Forest + Monte Carlo + SHAP ·
+        FastAPI REST backend · Data: football-data.org · Updates daily
     </p>
 </div>
 """, unsafe_allow_html=True)

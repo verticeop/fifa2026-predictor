@@ -188,7 +188,10 @@ def generate_demo_predictions():
         "Tunisia": 0.002, "Costa Rica": 0.002, "Iran": 0.002,
         "Saudi Arabia": 0.001, "Qatar": 0.001,
     }
-    save_predictions(demo)
+    try:
+        save_predictions(demo)
+    except Exception:
+        pass  # Streamlit Cloud has a read-only filesystem — skip saving
     return demo
 
 

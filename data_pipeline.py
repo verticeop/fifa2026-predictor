@@ -4,7 +4,7 @@ import sqlite3
 import os
 from datetime import datetime
 
-API_KEY = os.getenv("de92bbbc41bc4306913ec31e152a2814", "YOUR_FREE_API_KEY_HERE")
+API_KEY = os.getenv("FOOTBALL_API_KEY", "YOUR_FREE_API_KEY_HERE")
 BASE_URL = "https://api.football-data.org/v4"
 HEADERS  = {"X-Auth-Token": API_KEY}
 DB_PATH  = "fifa2026.db"
@@ -103,41 +103,49 @@ def fetch_historical_matches():
 def save_matches(rows):
     if not rows:
         return 0
-    conn = sqlite3.connect(DB_PATH)
-    df = pd.DataFrame(rows)
-    df.to_sql("matches", conn, if_exists="replace", index=False)
-    conn.close()
-    return len(rows)
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        df = pd.DataFrame(rows)
+        df.to_sql("matches", conn, if_exists="replace", index=False)
+        conn.close()
+        return len(rows)
+    except Exception:
+        return 0  # Read-only filesystem on Streamlit Cloud
 
 
 def load_matches():
-    conn = sqlite3.connect(DB_PATH)
     try:
+        conn = sqlite3.connect(DB_PATH)
         df = pd.read_sql("SELECT * FROM matches WHERE home_score IS NOT NULL", conn)
-    except:
-        df = pd.DataFrame()
-    conn.close()
-    return df
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
 
 
 def save_predictions(pred_dict):
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM predictions")
-    now = datetime.utcnow().isoformat()
-    for team, prob in pred_dict.items():
-        c.execute("INSERT INTO predictions (team, win_probability, updated_at) VALUES (?,?,?)",
-                  (team, round(prob, 4), now))
-    conn.commit()
-    conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        c = conn.cursor()
+        c.execute("DELETE FROM predictions")
+        now = datetime.utcnow().isoformat()
+        for team, prob in pred_dict.items():
+            c.execute("INSERT INTO predictions (team, win_probability, updated_at) VALUES (?,?,?)",
+                      (team, round(prob, 4), now))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass  # Read-only filesystem on Streamlit Cloud
 
 
 def load_predictions():
-    conn = sqlite3.connect(DB_PATH)
     try:
+        conn = sqlite3.connect(DB_PATH)
         df = pd.read_sql("SELECT * FROM predictions ORDER BY win_probability DESC", conn)
-    except:
-        df = pd.DataFrame(columns=["team","win_probability","updated_at"])
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame(columns=["team","win_probability","updated_at"])
     conn.close()
     return df
 
